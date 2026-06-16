@@ -20,7 +20,7 @@ class VideoRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "Universal Premium Autolink Downloader is Live!"}
+    return {"status": "Premium Universal Autolink Downloader is Fully Fixed!"}
 
 @app.post("/api/download")
 def get_video_link(request: VideoRequest):
@@ -52,23 +52,27 @@ def get_video_link(request: VideoRequest):
             res_data = json.loads(response.read().decode())
             download_url = None
 
-            # 🔥 इंस्टाग्राम और अन्य प्लेटफॉर्म्स का लिस्ट/एरे फ़ॉर्मेट डिकोड करने का कड़क लॉजिक
-            if "data" in res_data:
+            # 🔥 स्क्रीनशॉट के मुताबिक 'medias' लिस्ट के अंदर से URL निकालने का अचूक लॉजिक
+            if "medias" in res_data and isinstance(res_data["medias"], list) and len(res_data["medias"]) > 0:
+                download_url = res_data["medias"][0].get("url")
+
+            # अगर डेटा 'data' ऑब्जेक्ट के अंदर लिस्ट में हो (बैकअप चेक)
+            elif "data" in res_data:
                 d = res_data["data"]
                 if isinstance(d, dict):
-                    download_url = d.get("url") or d.get("download_url") or d.get("video") or d.get("medias")
+                    download_url = d.get("url") or d.get("download_url")
+                    if not download_url and "medias" in d and isinstance(d["medias"], list) and len(d["medias"]) > 0:
+                        download_url = d["medias"][0].get("url")
                 elif isinstance(d, list) and len(d) > 0:
                     download_url = d[0].get("url") or d[0].get("download_url")
 
-            # अगर सीधा रिस्पॉन्स टॉप लेवल पर हो
+            # अगर सीधा टॉप लेवल पर 'url' हो
             if not download_url and "url" in res_data:
                 download_url = res_data["url"]
-            elif not download_url and "medias" in res_data:
-                download_url = res_data["medias"][0].get("url") if isinstance(res_data["medias"], list) else res_data["medias"]
 
-            # ⚠️ फॉलबैक हटा दिया है! अगर लिंक नहीं मिला तो एरर दिखाओ, ताकि ओरिजिनल पेज पर रीडायरेक्ट न हो
+            # ⚠️ क्रिटिकल फिक्स: अगर असली .mp4 लिंक नहीं मिला, तो एरर थ्रो करो (रीडायरेक्ट पूरी तरह ब्लॉक)
             if not download_url or download_url == video_url:
-                raise HTTPException(status_code=404, detail="Direct MP4 video source link not found. Please try another link.")
+                raise HTTPException(status_code=404, detail="Direct MP4 video stream could not be extracted from this post.")
 
             return {
                 "success": True,
@@ -80,4 +84,4 @@ def get_video_link(request: VideoRequest):
     except HTTPException as he:
         raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"API Processing Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Backend Parsing Error: {str(e)}")
