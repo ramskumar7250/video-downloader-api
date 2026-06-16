@@ -5,6 +5,7 @@ import requests
 
 app = FastAPI()
 
+# CORS configured for Framer
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,7 +19,7 @@ class VideoRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "Global Media Fetcher API is perfectly online!"}
+    return {"status": "Premium Auto-Downloader API is fully authorized and online!"}
 
 @app.post("/api/download")
 def get_video_link(request: VideoRequest):
@@ -35,46 +36,49 @@ def get_video_link(request: VideoRequest):
     if platform == "unknown":
         raise HTTPException(status_code=400, detail="Unsupported platform. Please provide a Rumble, Kick, or Substack link.")
 
-    # 🌟 वीआईपी बाईपास रास्ता: हम एक पब्लिक स्क्रैपिंग गेटवे का यूज़ कर रहे हैं
-    # जो क्लाउडफ्लेयर को पूरी तरह चकमा देकर सीधे ओरिजिनल MP4 लिंक निकालता है
-    api_gateway = f"https://api.allorigins.win/get?url={requests.utils.quote(video_url)}"
+    # 🌟 Aapki subscribed API ka official endpoint URL
+    api_url = "https://auto-downloader-all-in-one.p.rapidapi.com/api/v1/downloader"
+
+    querystring = {"url": video_url}
+
+    # 🔥 IMPORTANT: Niche diye gaye 'YOUR_ACTUAL_RAPIDAPI_KEY' ko hata kar
+    # apni wo lambi wali key (jo aapke dashboard me dikh rahi thi) paste kar dena.
+    headers = {
+        "X-RapidAPI-Key": "YOUR_ACTUAL_RAPIDAPI_KEY",
+        "X-RapidAPI-Host": "auto-downloader-all-in-one.p.rapidapi.com"
+    }
 
     try:
-        response = requests.get(api_gateway, timeout=10)
+        response = requests.get(api_url, headers=headers, params=querystring, timeout=20)
+
         if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Secure server gateway bypass failed. Retrying...")
+            raise HTTPException(status_code=500, detail="API Gateway rejected the request. Check token quota.")
 
-        page_html = response.json().get('contents', '')
+        data = response.json()
 
-        # डायरेक्ट MP4 लिंक ढूंढने का स्मार्ट लॉजिक
-        import re
-        # रंबल और सबस्टैक के लिए mp4 लिंक्स खोजना
-        mp4_links = re.findall(r'https?://[^\s"\']+\.mp4[^\s"\']*', page_html)
+        # API ke format ke mutabik direct download URL extract karna
+        download_url = None
+        title = f"Downloaded_{platform}_Video"
 
-        if not mp4_links:
-            # बैकअप: अगर सीधे mp4 न मिले, तो वीडियो सोर्स टैग खोजना
-            src_links = re.findall(r'<source[^>]+src=["\']([^"\']+)["\']', page_html)
-            mp4_links = [l for l in src_links if "mp4" in l or "video" in l]
+        if "data" in data:
+            res_data = data["data"]
+            # Alag-alag platforms ke liye check karna
+            download_url = res_data.get("url") or res_data.get("download_url") or res_data.get("video") or res_data.get("main_url")
+            title = res_data.get("title") or f"Premium_{platform}_File"
+        elif "url" in data:
+            download_url = data["url"]
+            title = data.get("title", "Video")
 
-        if mp4_links:
-            # सबसे बेस्ट क्वालिटी का पहला डायरेक्ट लिंक उठाना
-            final_url = mp4_links[0].replace("&amp;", "&")
-
-            # अगर किक या सबस्टैक का अजीब एक्सटेंशन हो तो उसे साफ करना
+        # Agar API link fetch kar leti hai to usse return karein
+        if download_url:
             return {
                 "success": True,
                 "platform": platform,
-                "title": f"Downloaded_{platform}_Media",
-                "download_url": final_url
+                "title": title,
+                "download_url": download_url
             }
         else:
-            # अगर स्क्रैपर फेल हो तो सुरक्षित रूप से डायरेक्ट यूआरएल को ही प्लेयर में लोड करवा देना
-            return {
-                "success": True,
-                "platform": platform,
-                "title": f"{platform} Fast Stream File",
-                "download_url": video_url
-            }
+            raise HTTPException(status_code=404, detail="Could not extract direct MP4 from this specific link.")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Server Gateway Timeout: Please try clicking Download again.")
+        raise HTTPException(status_code=500, detail=f"Bypass Error: {str(e)}")
