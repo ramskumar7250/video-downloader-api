@@ -35,19 +35,18 @@ def get_video_link(request: VideoRequest):
     if platform == "unknown":
         raise HTTPException(status_code=400, detail="Unsupported platform. Please provide a valid Rumble, Kick, or Substack link.")
 
-    # 🔥 नया और असरदार फ़ॉर्मेट लॉजिक: यह सर्वर को मजबूर करेगा कि वह MP4 कंटेनर वाले
-    # उस फ़ॉर्मेट को ही चुने जिसमें वीडियो और ऑडियो दोनों शामिल हों।
-    ydl_opts = {
-        'format': 'best[ext=mp4]',  # केवल कम्बाइंड MP4 वीडियो ही उठाएगा
-        'quiet': True,
-        'no_warnings': True,
-        'extractor_args': {
-            'generic': ['impersonate'],
-        },
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    # 2. yt-dlp टूल के जरिए बेस्ट वीडियो और ऑडियो निकालकर मर्ज करना (अब FFmpeg काम करेगा)
+        ydl_opts = {
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'quiet': True,
+            'no_warnings': True,
+            'extractor_args': {
+                'generic': ['impersonate'],
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            }
         }
-    }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
