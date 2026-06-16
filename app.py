@@ -37,12 +37,20 @@ def get_video_link(request: VideoRequest):
     if platform == "unknown":
         raise HTTPException(status_code=400, detail="Unsupported platform. Please provide a valid Rumble, Kick, or Substack link.")
 
-    # 2. yt-dlp टूल के जरिए असली वीडियो डाउनलोड लिंक निकालना
-    ydl_opts = {
-        'format': 'best',  # सबसे बेस्ट क्वालिटी का वीडियो निकालेगा
-        'quiet': True,
-        'no_warnings': True,
-    }
+    # 2. yt-dlp टूल के जरिए असली वीडियो डाउनलोड लिंक निकालना (क्रोम ब्राउज़र का भेस बदलकर)
+        ydl_opts = {
+            'format': 'best',
+            'quiet': True,
+            'no_warnings': True,
+            'extractor_args': {
+                'generic': ['impersonate'],  # यह क्लाउडफ्लेयर एंटी-बॉट को बायपास करेगा
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+            }
+        }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
