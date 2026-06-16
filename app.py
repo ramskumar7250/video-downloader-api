@@ -5,7 +5,6 @@ import yt_dlp
 
 app = FastAPI()
 
-# CORS को ऑन रखना ज़रूरी है ताकि Framer वेबसाइट बात कर सके
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,7 +24,6 @@ def home():
 def get_video_link(request: VideoRequest):
     video_url = request.url.strip()
 
-    # प्लेटफॉर्म की पहचान करना
     platform = "unknown"
     if "rumble.com" in video_url:
         platform = "Rumble"
@@ -37,10 +35,10 @@ def get_video_link(request: VideoRequest):
     if platform == "unknown":
         raise HTTPException(status_code=400, detail="Unsupported platform. Please provide a valid Rumble, Kick, or Substack link.")
 
-    # 🔥 यह सबसे ज़रूरी हिस्सा है: यह कोड सिर्फ ऑडियो मिलने पर उसे रिजेक्ट कर देगा
-    # और हमेशा वीडियो+ऑडियो (MP4) का कम्बाइंड लिंक ही उठाएगा।
+    # 🔥 नया और असरदार फ़ॉर्मेट लॉजिक: यह सर्वर को मजबूर करेगा कि वह MP4 कंटेनर वाले
+    # उस फ़ॉर्मेट को ही चुने जिसमें वीडियो और ऑडियो दोनों शामिल हों।
     ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': 'best[ext=mp4]',  # केवल कम्बाइंड MP4 वीडियो ही उठाएगा
         'quiet': True,
         'no_warnings': True,
         'extractor_args': {
@@ -55,17 +53,8 @@ def get_video_link(request: VideoRequest):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
 
-            # असली वीडियो यूआरएल निकालना
             download_url = info.get('url') or info.get('formats')[-1].get('url')
             title = info.get('title', 'video')
-
-            # अगर फ़ाइल लाइव स्ट्रीम (.m3u8) है तो उसे रोकना
-            if ".m3u8" in download_url or "manifest" in download_url:
-                if platform == "Kick":
-                    raise HTTPException(
-                        status_code=400,
-                        detail="This is a Live Stream. Please paste a Clip or Past Video (VOD) link!"
-                    )
 
             return {
                 "success": True,
@@ -77,4 +66,5 @@ def get_video_link(request: VideoRequest):
     except HTTPException as he:
         raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching video: {str(e)}")
+        # अगर कोई कम्बाइंड MP4 फ़ॉर्मेट नहीं मिलता है, तो यूजर को एक साफ मैसेज दें
+        raise HTTPException(status_code=500, detail="Error fetching combined video format. Please ensure it is a valid video link.")
