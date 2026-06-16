@@ -5,6 +5,7 @@ import yt_dlp
 
 app = FastAPI()
 
+# CORS इनेबल करना
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,23 +36,24 @@ def get_video_link(request: VideoRequest):
     if platform == "unknown":
         raise HTTPException(status_code=400, detail="Unsupported platform. Please provide a valid Rumble, Kick, or Substack link.")
 
-    # 2. yt-dlp टूल के जरिए बेस्ट वीडियो और ऑडियो निकालकर मर्ज करना (अब FFmpeg काम करेगा)
-        ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            'quiet': True,
-            'no_warnings': True,
-            'extractor_args': {
-                'generic': ['impersonate'],
-            },
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            }
+    # 🌟 बिल्कुल सिंपल सेटिंग्स: कोई सख्त फ़िल्टर नहीं, जो बेस्ट और रेडीमेड लिंक मिले वही उठाओ
+    ydl_opts = {
+        'format': 'best',  # प्लेटफ़ॉर्म की तरफ से मिलने वाला सबसे बेस्ट और चालू सिंगल लिंक उठाएगा
+        'quiet': True,
+        'no_warnings': True,
+        'extractor_args': {
+            'generic': ['impersonate'],
+        },
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         }
+    }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
 
+            # वीडियो का असली यूआरएल फ़िल्टर करना
             download_url = info.get('url') or info.get('formats')[-1].get('url')
             title = info.get('title', 'video')
 
@@ -62,8 +64,5 @@ def get_video_link(request: VideoRequest):
                 "download_url": download_url
             }
 
-    except HTTPException as he:
-        raise he
     except Exception as e:
-        # अगर कोई कम्बाइंड MP4 फ़ॉर्मेट नहीं मिलता है, तो यूजर को एक साफ मैसेज दें
-        raise HTTPException(status_code=500, detail="Error fetching combined video format. Please ensure it is a valid video link.")
+        raise HTTPException(status_code=500, detail=f"Error fetching video: {str(e)}")
